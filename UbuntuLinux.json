@@ -5,11 +5,12 @@
         "dsvmAssetsUrl": {
             "type": "string",
             "metadata": {
-                "description": "The base URL for dependent assets"
+                "description": "The URL for DSVM assets",
+                "artifactsBaseUrl": ""
             },
             "defaultValue": "https://deeplearningvmstg.blob.core.windows.net/assets/"
         },
-
+        
         "existingVirtualNetworkResourceGroup": {
             "type": "string",
             "metadata": {
@@ -80,8 +81,8 @@
     "variables": {
         "location": "[parameters('location')]",
         "imagePublisher": "microsoft-ads",
-        "imageOfferUbuntuLinux": "linux-data-science-vm-ubuntu",
-        "skuUbuntuLinux": "linuxdsvmubuntu",
+        "imageOfferWindowsServer2016": "windows-data-science-vm",
+        "skuWindowsServer2016": "windows2016",
         "nicName": "[parameters('vmName')]",
         "addressPrefix": "192.168.1.0/24",
         "subnetName": "Subnet",
@@ -89,21 +90,15 @@
         "publicIPAddressType": "Dynamic",
         "publicIPAddressName": "[parameters('vmName')]",
         "domainNameLabel": "[concat('dsvm', uniquestring(resourceGroup().id, parameters('vmName')))]",
-        "vmStorageAccountContainerName": "vhds",
         "vmName": "[parameters('vmName')]",
         "vmSize": "[parameters('vmSize')]",
         "networkSecurityGroupName": "[concat(parameters('vmName'),'_NSG')]",
-        "apiVersion": "2015-06-15",
-
         
         "virtualNetworkName":  "[parameters('virtualNetworkName')]",
         "existingVirtualNetworkResourceGroup": "[parameters('existingVirtualNetworkResourceGroup')]",
         "vnetID": "[resourceId(variables('existingVirtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",
         "subnetId": "[concat(variables('vnetId'), '/subnets/', parameters('subnetName'))]"
 
-
-
-        
     },
     "resources": [
         {
@@ -116,28 +111,7 @@
             }
         },
         
-        {
-            "apiVersion": "2015-06-15",
-            "type": "Microsoft.Network/virtualNetworks",
-            "name": "[variables('virtualNetworkName')]",
-            "location": "[variables('location')]",
-            "properties": {
-                "addressSpace": {
-                    "addressPrefixes": [
-                        "[variables('addressPrefix')]"
-                    ]
-                },
-                "subnets": [
-                    {
-                        "name": "[variables('subnetName')]",
-                        "properties": {
-                            "addressPrefix": "[variables('subnetPrefix')]"
-                        }
-                    }
-                ]
-            }
-        },
-        {
+                {
             "type": "Microsoft.Network/networkSecurityGroups",
             "name": "[variables('networkSecurityGroupName')]",
             "apiVersion": "2015-06-15",
@@ -145,12 +119,12 @@
             "properties": {
                 "securityRules": [
                     {
-                        "name": "default-allow-ssh",
+                        "name": "default-allow-rdp",
                         "properties": {
                             "priority": 1000,
                             "sourceAddressPrefix": "*",
                             "protocol": "Tcp",
-                            "destinationPortRange": "22",
+                            "destinationPortRange": "3389",
                             "access": "Allow",
                             "direction": "inbound",
                             "sourcePortRange": "*",
@@ -158,12 +132,12 @@
                         }
                     },
                     {
-                        "name": "default-allow-jupyterhub",
+                        "name": "default-allow-jupyter",
                         "properties": {
                             "priority": 1010,
                             "sourceAddressPrefix": "*",
                             "protocol": "Tcp",
-                            "destinationPortRange": "8000",
+                            "destinationPortRange": "9999",
                             "access": "Allow",
                             "direction": "inbound",
                             "sourcePortRange": "*",
@@ -171,12 +145,12 @@
                         }
                     },
                     {
-                        "name": "default-allow-rstudio-server",
+                        "name": "default-allow-sql-server",
                         "properties": {
                             "priority": 1020,
                             "sourceAddressPrefix": "*",
                             "protocol": "Tcp",
-                            "destinationPortRange": "8787",
+                            "destinationPortRange": "1433",
                             "access": "Allow",
                             "direction": "inbound",
                             "sourcePortRange": "*",
@@ -200,7 +174,7 @@
                         "name": "ipconfig1",
                         "properties": {
                             "privateIPAllocationMethod": "Dynamic",
-                            "subnet": {
+                             "subnet": {
                                 "id": "[variables('subnetId')]"
                             }
                         }
@@ -217,9 +191,9 @@
             "name": "[variables('vmName')]",
             "location": "[variables('location')]",
             "plan": {
-                "name": "[variables('skuUbuntuLinux')]",
+                "name": "[variables('skuWindowsServer2016')]",
                 "publisher": "[variables('imagePublisher')]",
-                "product": "[variables('imageOfferUbuntuLinux')]"
+                "product": "[variables('imageOfferWindowsServer2016')]"
             },
             "tags": {
                 "Application": "DataScience"
@@ -240,21 +214,14 @@
                 "storageProfile": {
                     "imageReference": {
                         "publisher": "[variables('imagePublisher')]",
-                        "offer": "[variables('imageOfferUbuntuLinux')]",
-                        "sku": "[variables('skuUbuntuLinux')]",
+                        "offer": "[variables('imageOfferWindowsServer2016')]",
+                        "sku": "[variables('skuWindowsServer2016')]",
                         "version": "latest"
                     },
                     "osDisk": {
                         "name": "[variables('vmName')]",
                         "createOption": "FromImage"
-                    },
-                    "dataDisks": [
-                        {
-                            "createOption": "fromImage",
-                            "lun": 0,
-                            "name": "[concat(parameters('vmName'), '-disk-1')]"
-                        }
-                    ]
+                    }
                 },
                 "networkProfile": {
                     "networkInterfaces": [
@@ -280,15 +247,15 @@
                 "[concat('Microsoft.Compute/virtualMachines/',variables('vmName'))]"
             ],
             "properties": {
-                "publisher": "Microsoft.Azure.Extensions",
-                "type": "CustomScript",
-                "typeHandlerVersion": "2.0",
+                "publisher": "Microsoft.Compute",
+                "type": "CustomScriptExtension",
+                "typeHandlerVersion": "1.8",
                 "autoUpgradeMinorVersion": true,
                 "settings": {
                     "fileUris": [
-                        "[concat(parameters('dsvmAssetsUrl'),'UbuntuLinuxDLExInstall.sh')]"
+                        "[concat(parameters('dsvmAssetsUrl'),'WindowsServer2016DLExInstall.ps1')]"
                     ],
-                    "commandToExecute": "sh UbuntuLinuxDLExInstall.sh"
+                    "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File WindowsServer2016DLExInstall.ps1"
                 }
             }
         }
@@ -296,7 +263,7 @@
     "outputs": {
         "DataScienceVmUrl": {
             "type": "string",
-            "value": "[concat('https://ms.portal.azure.com/#resource/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+            "value": "[concat('https://ms.portal.azure.com/#resource/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Compute/virtualMachines/', parameters('vmName'))]"
         }
     }
 }
