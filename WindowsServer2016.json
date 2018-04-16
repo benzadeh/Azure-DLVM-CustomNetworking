@@ -87,8 +87,6 @@
         "addressPrefix": "192.168.1.0/24",
         "subnetName": "Subnet",
         "subnetPrefix": "192.168.1.0/28",
-        "publicIPAddressType": "Dynamic",
-        "publicIPAddressName": "[parameters('vmName')]",
         "domainNameLabel": "[concat('dsvm', uniquestring(resourceGroup().id, parameters('vmName')))]",
         "vmName": "[parameters('vmName')]",
         "vmSize": "[parameters('vmSize')]",
